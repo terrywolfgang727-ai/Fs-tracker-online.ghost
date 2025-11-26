@@ -10,6 +10,7 @@ const AES_KEY = "x93mK!qWeR7zL9p&2vN8bT5cY4fU6jH0";
 
 app.use(cors());
 app.use(bodyParser.json({ limit: '30mb' })); // ↑ increased for big screenshots
+app.use(bodyParser.urlencoded({ limit: '30mb', extended: true }));
 app.use(express.static('public'));
 
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'public', 'index.html')));
@@ -19,6 +20,7 @@ let history = []; // ← THIS IS YOUR PERSISTENT HISTORY
 
 app.get('/events', (req, res) => {
   res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Access-Control-Expose-Headers', 'Content-Length');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
   res.setHeader('X-Accel-Buffering', 'no');
