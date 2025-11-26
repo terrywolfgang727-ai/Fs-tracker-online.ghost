@@ -15,7 +15,25 @@
   table{width:100%;border-collapse:collapse;margin-top:20px;background:rgba(0,20,40,0.7);border:2px solid #0ff;box-shadow:0 0 40px rgba(0,255,255,0.4)}
   th{background:rgba(0,255,255,0.2);padding:15px;color:#0ff;text-shadow:0 0 15px #0ff}
   td{padding:12px;border-bottom:1px solid rgba(0,255,255,0.3)}
-  .keys{font-family:monospace;background:#001;color:#0f0;padding:8px;border-radius:4px;max-width:600px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+  /* ---------- FIXED KEY OVERFLOW ----------- */
+  .keys{
+    font-family:monospace;
+    background:#001;
+    color:#0f0;
+    padding:8px;
+    border-radius:4px;
+    max-width:600px;
+
+    /* fix right overflow */
+    white-space: normal;
+    overflow-wrap: break-word;
+    word-break: break-all;
+
+    display:block;
+  }
+  /* ----------------------------------------- */
+
   .ss{max-width:220px;max-height:124px;cursor:pointer;border:3px solid #033;border-radius:8px;transition:0.3s}
   .ss:hover{border-color:#0ff;transform:scale(1.08);box-shadow:0 0 30px #0ff}
   .modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.98);justify-content:center;align-items:center;z-index:999}
@@ -61,7 +79,7 @@ let counter = 1;
 const tbody = document.getElementById("logs");
 const filter = document.getElementById("filter");
 const totalEl = document.getElementById("total");
-const allLogs = [];  // ← ALL LOGS EVER
+const allLogs = [];  
 const clients = new Set();
 
 // CLEAR ALL LOGS
@@ -94,7 +112,6 @@ function addLog(d) {
   clients.add(d.Client);
   updateFilter();
 
-  // Only show if matches filter
   if (filter.value && filter.value !== d.Client) return;
 
   const row = document.createElement("tr");
@@ -117,7 +134,7 @@ filter.onchange = () => {
   const selected = filter.value;
   allLogs
     .filter(log => !selected || log.Client === selected)
-    .forEach(log => addLog(log));  // reuse addLog to keep counter
+    .forEach(log => addLog(log));
 };
 
 // SSE + history
