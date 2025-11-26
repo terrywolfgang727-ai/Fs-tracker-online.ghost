@@ -15,7 +15,23 @@
   table{width:100%;border-collapse:collapse;margin-top:20px;background:rgba(0,20,40,0.7);border:2px solid #0ff;box-shadow:0 0 40px rgba(0,255,255,0.4)}
   th{background:rgba(0,255,255,0.2);padding:15px;color:#0ff;text-shadow:0 0 15px #0ff}
   td{padding:12px;border-bottom:1px solid rgba(0,255,255,0.3)}
-  .keys{font-family:monospace;background:#001;color:#0f0;padding:8px;border-radius:4px;max-width:600px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  
+  /* 🔥 FIXED KEY WRAPPING */
+  .keys{
+    font-family:monospace;
+    background:#001;
+    color:#0f0;
+    padding:8px;
+    border-radius:4px;
+
+    max-width:600px;
+    white-space:pre-wrap;      /* allow multi-line */
+    word-wrap:break-word;      /* break long strings */
+    
+    overflow:auto;             /* scroll if too long */
+    max-height:150px;          /* prevents huge vertical expansion */
+  }
+
   .ss{max-width:220px;max-height:124px;cursor:pointer;border:3px solid #033;border-radius:8px;transition:0.3s}
   .ss:hover{border-color:#0ff;transform:scale(1.08);box-shadow:0 0 30px #0ff}
   .modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.98);justify-content:center;align-items:center;z-index:999}
@@ -41,7 +57,6 @@
   </tr></thead><tbody id="logs"></tbody></table>
 </div>
 
-<!-- CENTRALI SIGNATURE -->
 <div class="signature">— CENTRALI —</div>
 
 <div id="modal" class="modal" onclick="this.style.display='none'">
